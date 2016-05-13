@@ -1,0 +1,89 @@
+ 4
+down vote
+favorite
+	
+
+Am I missing something or does node.js's standard file I/O module lack analogs of the usual file random access methods?
+
+    seek() / fseek()
+    tell() / ftell()
+
+How does one read random fixed-size records from large files in node without these?
+node.js seek random-access
+shareimprove this question
+	
+asked Dec 18 '12 at 12:25
+hippietrail
+5,83445082
+	
+add a comment
+2 Answers
+active
+oldest
+votes
+up vote
+7
+down vote
+	
+
+tell is not, but it is pretty rare to not already know the position you are at in a file, or to not have a way to keep track yourself.
+
+seek is exposed indirectly via the position argument of fs.read and fs.write. When given, the argument will seek to that location before performing its operation, and if null, it will use whatever previous position it had.
+shareimprove this answer
+	
+edited Dec 24 '12 at 5:01
+	
+answered Dec 24 '12 at 4:54
+loganfsmyth
+50.1k89396
+	
+1 	 
+	
+The times I use tell are mostly when I'm reading text in platform-agnostic code line-by-line which could have lines ending in either \n, \r (no longer common), or \r\n. It's certainly still possible to track position without tell though. – hippietrail Dec 24 '12 at 5:03
+   	 
+	
+For the benefit of anyone else who might read this thread, I missed the position parameter because in my reading of the docs I managed to conflate it with the offset parameter, which is the offset from the start of the buffer you want to read data into. – hippietrail Dec 24 '12 at 5:05
+   	 
+	
+This works great for reading records from binary files, but I also need to read lines of text from passed file offsets. It turns out to be very difficult to read a single line of text using fs.read due to the nature of Buffer and the need to convert such to encoded text such as UTF-8. The obvious ways result in broken characters since UTF-8 includes multibytes characters. ReadableStream handles multibyte characters, but does not allow one to seek freely. I'm not sure there's any library which lets you combine random access and line reading. – hippietrail Jan 2 '13 at 14:00
+   	 
+	
+@hippietrail The two are kind of at odds with each other unfortunately. This isn't really a common issue. That said, please create a new question if you want answers to this. Reading lines from random positions is independent of your original question here. – loganfsmyth Jan 2 '13 at 16:25
+   	 
+	
+Thanks @loganfsmyth I will ask a specific question. I just wanted to get my thoughts linked in here too before my internet credit last night ran out. Though my use case (indexing offsets into very large text files - Wikipedia XML dumps) is not "common" I have implemented it before in C, Perl, and even JavaScript in a FireFox plugin so I was surprised it was so tricky in node considering how much better node is that those environments in various ways. – hippietrail Jan 3 '13 at 7:21
+add a comment
+up vote
+1
+down vote
+	
+
+node doesn't have these built in, the closest you can get is to use fs.createReadStream with a start parameter to start reading from an offset, (pass in an existing fd to avoid re-opening the file).
+
+http://nodejs.org/api/fs.html#fs_fs_createreadstream_path_options
+shareimprove this answer
+	
+edited Dec 20 '12 at 0:31
+hippietrail
+5,83445082
+	
+answered Dec 18 '12 at 12:35
+yiding
+2,454816
+	
+   	 
+	
+Unless this turns out to be slow it seems like a perfect solution. It could depend on the cost of creating a ReadStream from an fd. – hippietrail Dec 20 '12 at 0:30
+   	 
+	
+Do I also need to pass in the same path parameter each time I call createReadStream() again? The path is mandatory while the fd is just optional and the docs are not clear. – hippietrail Dec 22 '12 at 18:49
+   	 
+	
+hm... have you tried passing in null for path, even though it says it's required? otherwise i'd just pass in the same path. – yiding Dec 22 '12 at 21:37
+   	 
+	
+Yes I've since tried it and the "required" path is ignorned no matter what it is if you also supply the optional fd. This doesn't seem to be guaranteed explicitly in the documentation or stated so in the source. Also I can find nothing authoritative by searching the forums. I am loathe to rely on a behaviour that's not documented even if backed up by common sense. I might find a way to ask officially. Thank you yiding. – hippietrail Dec 23 '12 at 1:36
+   	 
+	
+I ran into problems when trying to use this multiple times for each time I want to read from some position in the same file: createReadStream multiple times on the same fd – hippietrail Dec 24 '12 at 0:16
+add a comment
